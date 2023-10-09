@@ -1,0 +1,88 @@
+name: "Nextcloud - MariaDB - Docs - Firefox"
+author: "Fabian S.;"
+description: "Installs the official Nextcloud image with a MariaDB and collaborates on a document. Uses a playwright script running Firefox to create an admin account, install the recommended apps. Then creates a new user, creates a document and shares it. Finally, works on the document adding text from two browsers."
+sci: 
+  R_d: "collaborative edit"
+services: 
+  db: 
+    image: "mariadb:11.0.2-jammy"
+    restart: always
+    command: "--transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW"
+    volumes: 
+      []
+    environment: 
+      - "MYSQL_ROOT_PASSWORD=messrechner"
+      - "MYSQL_PASSWORD=messrechner"
+      - "MYSQL_DATABASE=nextcloud"
+      - "MYSQL_USER=nextcloud"
+    networks: 
+      - "nextcloud-setup-network"
+  nc: 
+    image: "nextcloud:27.1.1-apache"
+    restart: always
+    ports: 
+      - "8080:80"
+    links: 
+      - db
+    volumes: 
+      []
+    environment: 
+      - "MYSQL_PASSWORD=messrechner"
+      - "MYSQL_DATABASE=nextcloud"
+      - "MYSQL_USER=nextcloud"
+      - "MYSQL_HOST=db"
+    networks: 
+      - "nextcloud-setup-network"
+  "gcb-playwright": 
+    image: "greencoding/gcb_playwright"
+    "setup-commands": 
+      - "cp /tmp/repo/nextcloud_install.py /tmp/nextcloud_install.py"
+      - "cp /tmp/repo/nextcloud_create_user.py /tmp/nextcloud_create_user.py"
+      - "cp /tmp/repo/nextcloud_create_doc_and_share.py /tmp/nextcloud_create_doc_and_share.py"
+      - "cp /tmp/repo/nextcloud_docs_collaboration.py /tmp/nextcloud_docs_collaboration.py"
+    networks: 
+      - "nextcloud-setup-network"
+networks: 
+  "nextcloud-setup-network": null
+flow: 
+  - name: "Install Nextcloud"
+    container: "gcb-playwright"
+    commands: 
+      - type: console
+        command: "python3 /tmp/nextcloud_install.py firefox"
+        note: "Installing Nextcloud"
+        "read-notes-stdout": true
+        "log-stdout": true
+        "log-stderr": true
+  - name: "Create User"
+    container: "gcb-playwright"
+    commands: 
+      - type: console
+        command: "python3 /tmp/nextcloud_create_user.py firefox"
+        note: "Create user"
+        "read-notes-stdout": true
+        "log-stdout": true
+        "log-stderr": true
+  - name: "Create doc and share"
+    container: "gcb-playwright"
+    commands: 
+      - type: console
+        command: "python3 /tmp/nextcloud_create_doc_and_share.py firefox"
+        note: "Create document and share"
+        "read-notes-stdout": true
+        "log-stdout": true
+        "log-stderr": true
+  - name: Collaborate
+    container: "gcb-playwright"
+    commands: 
+      - type: console
+        command: "python3 /tmp/nextcloud_docs_collaboration.py firefox"
+        note: dev
+        "read-notes-stdout": true
+        "read-sci-stdout": true
+        "log-stdout": true
+        "log-stderr": true
+version: 2
+volumes: 
+  nextcloud: null
+  db: null
